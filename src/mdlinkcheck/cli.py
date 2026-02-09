@@ -25,3 +25,25 @@ def main(argv=None):
 
     exclude = args.exclude or []
 
+    result = scan_paths(
+        root=root,
+        include=include,
+        exclude_substrings=exclude,
+        ignore_substrings=args.ignore,
+        timeout=args.timeout,
+        workers=args.workers,
+        user_agent=args.user_agent,
+    )
+
+    out = format_report(result, as_json=args.json)
+    sys.stdout.write(out)
+    if out and not out.endswith("\n"):
+        sys.stdout.write("\n")
+
+    broken = result["summary"]["broken_count"]
+    if args.fail and broken > 0:
+        return 2
+    return 0
+
+if __name__ == "__main__":
+    raise SystemExit(main())
