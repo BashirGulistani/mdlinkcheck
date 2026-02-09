@@ -9,3 +9,19 @@ def main(argv=None):
     parser.add_argument("root", nargs="?", default=".", help="Root directory to scan")
     parser.add_argument("--include", nargs="*", default=None, help="Only scan these paths (files or dirs) under root")
     parser.add_argument("--exclude", nargs="*", default=None, help="Exclude paths containing any of these substrings")
+    parser.add_argument("--timeout", type=float, default=10.0, help="HTTP timeout seconds")
+    parser.add_argument("--workers", type=int, default=20, help="Max concurrent checks")
+    parser.add_argument("--user-agent", default="mdlinkcheck/0.1", help="HTTP user agent")
+    parser.add_argument("--ignore", action="append", default=[], help="Ignore links containing this substring (repeatable)")
+    parser.add_argument("--fail", action="store_true", help="Exit non-zero if broken links exist")
+    parser.add_argument("--json", action="store_true", help="Emit JSON report")
+    args = parser.parse_args(argv)
+
+    root = os.path.abspath(args.root)
+
+    include = None
+    if args.include:
+        include = [os.path.join(root, p) if not os.path.isabs(p) else p for p in args.include]
+
+    exclude = args.exclude or []
+
