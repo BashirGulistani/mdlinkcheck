@@ -186,5 +186,38 @@ def _check_local(md_file, url):
         return True, None, None
     return os.path.exists(target), None, None
 
+def scan_paths(root, include, exclude_substrings, ignore_substrings, timeout, workers, user_agent):
+    start = time.time()
+    files = _walk_markdown_files(root, include, exclude_substrings)
+
+    items = []
+    for fp in files:
+        text = _read_text(fp)
+        links = extract_links(text)
+        for link in links:
+            if any(s in link for s in ignore_substrings if s):
+                continue
+            items.append((fp, link))
+
+    checks = []
+    for fp, link in items:
+        if _is_mailto(link) or _is_tel(link) or _is_data(link) or _is_fragment_only(link):
+            checks.append((fp, link, True, None, None))
+            continue
+        if _is_http(link):
+            checks.append((fp, link, None, None, None))
+            continue
+        if _looks_like_relative_path(link):
+            ok, code, err = _check_local(fp, link)
+            checks.append((fp, link, ok, code, err))
+            continue
+        checks.append((fp, link, True, None, None))
+
+    pending = [(fp, link) for fp, link, ok, _, _ in checks if ok is None]
+    results = []
+    for fp, link, ok, code, err in checks:
+        if ok is not None:
+            results.append({"file": fp, "link": link, "ok": ok, "status": code, "error": err})
+
 
 
