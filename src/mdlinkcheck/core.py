@@ -53,5 +53,43 @@ def _walk_markdown_files(root, include, exclude_substrings):
     return candidates
 
 
+def _read_text(path):
+    with open(path, "rb") as f:
+        raw = f.read()
+    for enc in ("utf-8", "utf-8-sig", "cp1252", "latin-1"):
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("utf-8", errors="replace")
+
+def _strip_code_blocks(text):
+    lines = text.splitlines(True)
+    out = []
+    fence = None
+    for line in lines:
+        m = re.match(r"^\s*(```+|~~~+)", line)
+        if m:
+            token = m.group(1)
+            if fence is None:
+                fence = token
+            else:
+                if token.startswith(fence[:3]):
+                    fence = None
+            out.append("\n")
+            continue
+        if fence is not None:
+            out.append("\n")
+        else:
+            out.append(line)
+    return "".join(out)
+
+def _normalize_link(raw):
+    s = raw.strip()
+    if (s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'")):
+        s = s[1:-1].strip()
+    s = s.replace("&amp;", "&")
+    return s
+
 
 
