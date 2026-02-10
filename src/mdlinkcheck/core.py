@@ -113,5 +113,78 @@ def _is_fragment_only(url):
 def _is_data(url):
     return url.lower().startswith("data:")
 
+def _looks_like_relative_path(url):
+    if "://" in url:
+        return False
+    if url.startswith("/"):
+        return True
+    if url.startswith("./") or url.startswith("../"):
+        return True
+    if re.match(r"^[A-Za-z0-9_.-]+/.*", url):
+        return True
+    if re.match(r"^[A-Za-z0-9_.-]+\.(md|markdown|mdx|html|png|jpg|jpeg|gif|svg|pdf)$", url, re.I):
+        return True
+    return False
+
+def extract_links(markdown_text):
+    text = _strip_code_blocks(markdown_text)
+
+    ref_defs = {}
+    for line in text.splitlines():
+        m = REF_DEF_RE.match(line)
+        if m:
+            key = m.group(1).strip().lower()
+            ref_defs[key] = _normalize_link(m.group(2))
+
+    found = []
+    for m in INLINE_LINK_RE.finditer(text):
+        found.append(_normalize_link(m.group(2)))
+
+    for m in AUTOLINK_RE.finditer(text):
+        found.append(_normalize_link(m.group(1)))
+
+    for m in REF_USE_RE.finditer(text):
+        key = m.group(2).strip().lower()
+        if key in ref_defs:
+            found.append(ref_defs[key])
+
+    cleaned = []
+    for u in found:
+        if not u:
+            continue
+        if u.startswith("!"):
+            continue
+        cleaned.append(u)
+    return cleaned
+
+def _resolve_local_path(md_file, url_base):
+    url_base = url_base.strip()
+    if url_base.startswith("/"):
+        return None
+    rel = urllib.parse.unquote(url_base)
+    rel = rel.split("?", 1)[0]
+    here = os.path.dirname(md_file)
+    return os.path.normpath(os.path.join(here, rel))
+
+def _check_http(url, timeout, user_agent):
+    req = urllib.request.Request(url, headers={"User-Agent": user_agent})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            code = getattr(r, "status", None) or 200
+            if 200 <= code < 400:
+                return True, code, None
+            return False, code, None
+    except Exception as e:
+        return False, None, str(e)
+
+def _check_local(md_file, url):
+    base, _ = _split_anchor(url)
+    if not base:
+        return True, None, None
+    target = _resolve_local_path(md_file, base)
+    if target is None:
+        return True, None, None
+    return os.path.exists(target), None, None
+
 
 
