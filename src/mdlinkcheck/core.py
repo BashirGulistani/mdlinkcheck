@@ -91,5 +91,27 @@ def _normalize_link(raw):
     s = s.replace("&amp;", "&")
     return s
 
+def _split_anchor(url):
+    if "#" in url:
+        base, frag = url.split("#", 1)
+        return base, frag
+    return url, ""
+
+def _is_http(url):
+    u = url.lower()
+    return u.startswith("http://") or u.startswith("https://")
+
+def _is_mailto(url):
+    return url.lower().startswith("mailto:")
+
+def _is_tel(url):
+    return url.lower().startswith("tel:")
+
+def _is_fragment_only(url):
+    return url.strip().startswith("#")
+
+def _is_data(url):
+    return url.lower().startswith("data:")
+
 
 
