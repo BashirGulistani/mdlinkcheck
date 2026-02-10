@@ -220,4 +220,68 @@ def scan_paths(root, include, exclude_substrings, ignore_substrings, timeout, wo
             results.append({"file": fp, "link": link, "ok": ok, "status": code, "error": err})
 
 
+    def run_one(pair):
+        fp, link = pair
+        ok, code, err = _check_http(link, timeout=timeout, user_agent=user_agent)
+        return {"file": fp, "link": link, "ok": ok, "status": code, "error": err}
 
+    if pending:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
+            for r in ex.map(run_one, pending):
+                results.append(r)
+
+    broken = [r for r in results if not r["ok"]]
+    ok_count = len(results) - len(broken)
+
+    by_file = {}
+    for r in results:
+        by_file.setdefault(r["file"], []).append(r)
+
+    elapsed = time.time() - start
+    return {
+        "summary": {
+            "root": os.path.abspath(root),
+            "files_scanned": len(files),
+            "links_checked": len(results),
+            "ok_count": ok_count,
+            "broken_count": len(broken),
+            "seconds": round(elapsed, 3),
+        },
+        "broken": broken,
+        "by_file": by_file,
+    }
+
+def format_report(result, as_json):
+    if as_json:
+        return json.dumps(result, indent=2, sort_keys=True)
+
+    s = result["summary"]
+    lines = []
+    lines.append(f"root: {s['root']}")
+    lines.append(f"files_scanned: {s['files_scanned']}")
+    lines.append(f"links_checked: {s['links_checked']}")
+    lines.append(f"ok: {s['ok_count']}  broken: {s['broken_count']}")
+    lines.append(f"seconds: {s['seconds']}")
+    if s["broken_count"] == 0:
+        return "\n".join(lines)
+
+    lines.append("")
+    broken = result["broken"]
+    broken.sort(key=lambda x: (x["file"], x["link"]))
+
+    current = None
+    for r in broken:
+        if current != r["file"]:
+            current = r["file"]
+            lines.append(current)
+        status = r["status"]
+        err = r["error"]
+        tail = ""
+        if status is not None:
+            tail = f"status={status}"
+        elif err:
+            tail = err
+        else:
+            tail = "unknown_error"
+        lines.append(f"  {r['link']}  {tail}")
+    return "\n".join(lines)
