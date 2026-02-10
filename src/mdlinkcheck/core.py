@@ -40,6 +40,18 @@ def _walk_markdown_files(root, include, exclude_substrings):
                         if _is_markdown(fp) and allowed(fp):
                             candidates.append(fp)
 
+    else:
+        for base, _, files in os.walk(root):
+            if not allowed(base):
+                continue
+            for f in files:
+                fp = os.path.join(base, f)
+                if _is_markdown(fp) and allowed(fp):
+                    candidates.append(fp)
+
+    candidates.sort()
+    return candidates
+
 
 
 
